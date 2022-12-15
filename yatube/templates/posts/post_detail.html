@@ -32,7 +32,13 @@
                 </a>
               {% endif %} 
             </li>
-        </ul>
+            {% if request.user.id == post.author.id %}
+            <a class="d-flex justify-content-center" href="{% url 'posts:post_edit' post.id %}">
+              <button class="btn btn-primary">
+              Редактировать запись
+              </button>
+            </a>
+            {% endif%}
       </aside>
       <article class="col-12 col-md-9">
         <p>
