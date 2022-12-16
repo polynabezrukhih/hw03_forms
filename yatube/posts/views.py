@@ -1,5 +1,6 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from .models import Post, Group, User
+from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib.auth.decorators import login_required
+from .models import Group, User, Post
 from .utils import pagntr
 
 from .forms import PostForm
@@ -9,9 +10,8 @@ POSTS_AMOUNT = 10
 
 
 def index(request):
-    post_list = Post.objects.select_related('author', 'group').all()
-    page_number = request.GET.get('page')
-    page_obj = pagntr(post_list, page_number)
+    post_list = Post.objects.select_related('author', 'group')
+    page_obj = pagntr(request, post_list)
     context = {
         'page_obj': page_obj,
     }
@@ -28,9 +28,8 @@ def post_detail(request, post_id):
 
 def group_list(request, slug):
     group = get_object_or_404(Group, slug=slug)
-    post_list = group.groups.select_related('group').all()
-    page_number = request.GET.get('page')
-    page_obj = pagntr(post_list, page_number)
+    post_list = group.groups.select_related('group', 'author')
+    page_obj = pagntr(request, post_list)
     context = {
         'page_obj': page_obj,
         'group': group,
@@ -45,8 +44,7 @@ def profile(request, username):
     post_list = Post.objects.select_related('author').filter(
         author__username=username
     )
-    page_number = request.GET.get('page')
-    page_obj = pagntr(post_list, page_number)
+    page_obj = pagntr(request, post_list)
     context = {
         'author': author,
         'page_obj': page_obj,
@@ -54,24 +52,26 @@ def profile(request, username):
     return render(request, 'posts/profile.html', context)
 
 
+@login_required
 def post_create(request):
     form = PostForm(request.POST or None)
-    if request.method == 'POST':
-        if form.is_valid():
-            post = form.save(commit=False)
-            post.author = request.user
-            post.save()
-            return redirect('posts:profile', post.author)
+    if not request.method == 'POST':
         context = {
             'form': form
         }
         return render(request, 'posts/create_post.html', context)
+    if form.is_valid():
+        post = form.save(commit=False)
+        post.author = request.user
+        post.save()
+        return redirect('posts:profile', post.author)
     context = {
         'form': form
     }
     return render(request, 'posts/create_post.html', context)
 
 
+@login_required
 def post_edit(request, post_id):
     post = get_object_or_404(Post, pk=post_id)
     if post.author != request.user:
@@ -83,6 +83,7 @@ def post_edit(request, post_id):
             context = {
                 'form': form,
                 'is_edit': is_edit,
+                'post_id': post_id,
             }
             return render(request, 'posts/create_post.html', context)
         form.save()
@@ -90,5 +91,6 @@ def post_edit(request, post_id):
     context = {
         'form': form,
         'is_edit': is_edit,
+        'post_id': post_id,
     }
     return render(request, 'posts/create_post.html', context)
